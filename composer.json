@@ -1,0 +1,28 @@
+{
+  "name": "surpaimb/laravel-jpush",
+  "type": "library",
+  "description": "JPush for laravel",
+  "authors": [
+    {
+      "name": "surpaimb",
+      "email": "surpaimb@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=7.0",
+    "jpush/jpush": "^3.6"
+  },
+  "autoload": {
+    "psr-4": {
+      "Surpaimb\\JPush\\": "src/"
+    }
+  },
+  "license": "MIT",
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Surpaimb\\JPush\\JPushServiceProvider"
+      ]
+    }
+  }
+}
