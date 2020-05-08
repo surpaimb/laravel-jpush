@@ -41,22 +41,58 @@ class JPushServiceProvider extends LaravelServiceProvider implements DeferrableP
         // $this->app->singleton('JPush', function () {
         //     return new JPush(config('jpush.appkey'), config('jpush.secretKey'));
         // });
-        $this->app->bind(JPushService::class, function (){
+
+     //JPUSH PATIENT
+     $this->app->singleton('JPushP', function () {
+        $jPush = new JPushService(
+            $this->app,
+            config('jpush.patient.app_key'),
+            config('jpush.patient.secret_key'),
+            config('jpush.patient.apns_production'),
+            config('jpush.patient.log_file')
+        );
+
+        if ($this->app->bound('queue')) {
+            $jPush->setQueue($this->app['queue']);
+        }
+
+        return $jPush;
+    });
+    
+    //JPUSH DOCTOR
+    $this->app->singleton('JPushD', function () {
+        $jPush = new JPushService(
+            $this->app,
+            config('jpush.doctor.app_key'),
+            config('jpush.doctor.secret_key'),
+            config('jpush.doctor.apns_production'),
+            config('jpush.doctor.log_file')
+        );
+
+        if ($this->app->bound('queue')) {
+            $jPush->setQueue($this->app['queue']);
+        }
+
+        return $jPush;
+    });
+
+
+    //     $this->app->bind(JPushService::class, function (){
         
-            $jPush = new JPushService(
-                $this->app,
-                config('jpush.app_key'),
-                config('jpush.secret_key'),
-                config('jpush.apns_production'),
-                config('jpush.log_file')
-            );
+    //         $jPush = new JPushService(
+    //             $this->app,
+    //             config('jpush.app_key'),
+    //             config('jpush.secret_key'),
+    //             config('jpush.apns_production'),
+    //             config('jpush.log_file')
+    //         );
 
-           if ($this->app->bound('queue')) {
-               $jPush->setQueue($this->app['queue']);
-           }
+    //        if ($this->app->bound('queue')) {
+    //            $jPush->setQueue($this->app['queue']);
+    //        }
 
-           return $jPush;
-       });
+    //        return $jPush;
+    //    });
 
        $this->app->alias(JPushService::class, 'jpush');
     }
