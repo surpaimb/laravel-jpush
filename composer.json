@@ -12,16 +12,28 @@
     "php": ">=7.0",
     "surpaimb/jpush": "^3.6"
   },
+  "require-dev": {
+    "mockery/mockery": "^1.2",
+    "phpunit/phpunit": "^7.5"
+},
   "autoload": {
     "psr-4": {
-      "Surpaimb\\JPush\\": "src/"
+        "Surpaimb\\JPush\\": "src/"
     }
+  },
+  "autoload-dev": {
+      "psr-4": {
+          "Surpaimb\\Tests\\JPush\\": "tests/"
+      }
   },
   "license": "MIT",
   "extra": {
+    "branch-alias": {
+      "dev-master": "1.0-dev"
+  },
     "laravel": {
       "providers": [
-        "Surpaimb\\JPush\\JPushServiceProvider"
+        "Surpaimb\\JPush\\ServiceProvider"
       ]
     }
   }

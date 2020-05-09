@@ -1,70 +1,163 @@
-# Laravel JPush
-基于 `surpaimb/jpush` `3.6.6` 版本(当前最新版本), 三分钟完成极光推送开发.
+# 极光推送在 Laravel 通知的支持
 
-## Install
-> composer require surpaimb/laravel-jpush
+我们在开发针对国内运营的时候进行需要使用过程的几家推送，极光推送则是其中之一。这个包就可以让你方便的在你构件的 Laravel 应用中进行极光推送的使用。
 
-## Require
-- Laravel ^7.0
+## 前提
 
-## Configure
-在 `config.php`里增加极光配置 : 
+安装驱动需要以下条件：
+
+- PHP `>=` 7
+- Laravel `>=` 5.5
+
+## 安装
+
+在你的 Laravel 应用目录执行 Composer 进行安装：
+
 ```
- [
-        // 极光 app kye 
-        'app_key' => env('JPUSH_APP_KEY') 
-        // 极光 master secret
-        'secret_key' => env('JPUSH_SECRET_SECRET'), 
-        // 仅对iOS有效 开发环境设置为false 生产环境设置为true
-        'apns_production' => env('JPUSH_APNS_PRODUCTION', false), 
-        // 接口请求日志文件 为 null 不记录日志
-        'log_file' => env('JPUSH_LOG_FILE'), 
+composer require surpaimb/laravel-jpush-notification-channel
+```
+
+> 包中依赖了匹配的 `jpush/jpush` 依赖版本为 `^3.6`，你已经依赖了更低版本的不兼容版本包，使用的时候要小心了！
+
+## 配置
+
+在 `config/jpush.php` 中进行如下配置：
+
+```php
+return [
+    'jpush' => [
+        'app_key' => env('JPUSH_APP_KEY', ''),
+        'master_secret' => env('JPUSH_MASTER_SECRET', ''),
+        'apns_production' => env('JPUSH_APNS_PRODUCTION', false),
     ],
+    'patient' => [
+        'app_key' => env('JPUSH_PATIENT_APP_KEY'),
+        'secret_key' => env('JPUSH_PATIENT_SECRET_KEY'),
+        'apns_production' => env('JPUSH_PATIENT_APNS_PRODUCTION'),
+        'log_file' => env('JPUSH_PATIENT_LOG_FILE')
+    ],
+    'doctor' => [
+        'app_key' => env('JPUSH_DOCTOR_APP_KEY'),
+        'secret_key' => env('JPUSH_DOCTOR_SECRET_KEY'),
+        'apns_production' => env('JPUSH_DOCTOR_APNS_PRODUCTION'),
+        'log_file' => env('JPUSH_DOCTOR_LOG_FILE')
+    ]
+]
 ```
 
-如果需要`Facade` 在 `config/app.php` `alias` 数组下增加 
+然后在 `.env` 文件中进行配置：
 
-` 'JPush' => Surpaimb\JPush\JPushServiceFacade::class,`
+```
+JPUSH_APP_KEY=
+JPUSH_MASTER_SECRET=
+JPUSH_APNS_PRODUCTION=
+```
 
-## Use
-推送可以采用同步或异步任意一种方式(推荐异步)
+## 使用
 
-一下代码示例假设配置了 `JPush` alias
+我们已**用户为例**，这里使用 `laravel/laravel` 创建的默认应用模型位置。
 
-    
-同步推送
+### 数据模型
+
+在用户模型中进行配置，创建一个 `routeNotificationForJpush` 方法在模型上：
+
 ```php
-JPush::pushNow('别名', '通知', '附加信息');
-JPush::pushNow(['别名数组'], '通知', '附加信息');
-JPush::pushNow('all', '通知', '附加信息'); // 推送给所有人
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Surpaimb\JPush\Sender as JPushSender;
+
+class User extends Authenticatable
+{
+    /**
+     * Get Notification for JPush sender.
+     * @return \Surpaimb\JPush\Sender
+     */
+    protected function routeNotificationForJpush()
+    {
+        return new JPushSender([
+            'platform' => 'all',
+            'audience' => [
+                'alias' => sprintf('user_%d', $this->id),
+            ],
+        ]);
+    }
+}
 ```
 
-异步推送
+这里我们返回一个 `Surpaimb\JPush\Sender` 实例，可以使用构造参数快速配置，如同上面一样，也可以使用链式调用进行配置。链式调用的 API 如下：
+
+- `setPlatform` 设置平台，值有 `all`、`winphone`、`android` 和 `ios`
+- `setAudience` 推送目标进行设置
+
+> `setAudience` 方法或者构造参数中的 `audience` 设置参考：[推送目标](https://docs.jiguang.cn/jpush/server/push/rest_api_v3_push/#audience)文档。
+
+### 通知类
+
+一般我们写通知大概都是通过 `php artisan make:notification` 进行创建的，存放在 `app/Notifications/` 目录下，假设我们现在有一个评论通知类 `CommentNotification.php` 我们仅需在里面增加下面的代码：
+
 ```php
-JPush::pushQueue('别名', '通知', '附加信息');
-JPush::pushQueue(['别名数组'], '通知', '附加信息');
-JPush::pushQueue('all', '通知', '附加信息'); // 推送给所有人
+<?php
+
+namespace App\Notifications;
+
+use Illuminate\Notifications\Notification;
+use Surpaimb\JPush\Message as JPushMessage;
+
+class CommentNotification extends Notification
+{
+    public function toJpush($notifiable)
+    {
+        $message = new JPushMessage();
+        // TODO
+
+        /*
+            ====== 把所有的配置都进行配置 ===
+            $message->setAlert('Alert.'); // 简单地给所有平台推送相同的 alert 消息
+
+            // 自定义消息
+            $message->setMessage('Message', [
+                'title' => '', // 通知标题，会填充到 toast 类型 text1 字段上
+                '_open_page' => '', 点击打开的页面名称
+                'extras' => [], // 自定义的数据内容
+            ]);
+
+            // iOS 通知
+            $message->setNotification(JPushMessage::IOS, 'Alert 内容', [
+                'alert' => '', // 覆盖第二个参数的 Alert 内，推荐不传,
+                'sound' => '', // 表示通知提示声音，默认填充为空字符串
+                'badge' => '', // 表示应用角标，把角标数字改为指定的数字；为 0 表示清除，支持 '+1','-1' 这样的字符串，表示在原有的 badge 基础上进行增减，默认填充为 '+1'
+                /// ...
+            ])
+
+            // 更多通知请参考 https://docs.jiguang.cn/jpush/server/push/rest_api_v3_push/#notification 官方文档
+            // 使用 `setNotification` 方法第一个常量有三个： IOS/ANDROID/WP
+
+            // 可选参数
+            $message->setOptions([]); // 参考 https://docs.jiguang.cn/jpush/server/push/rest_api_v3_push/#options
+        */
+
+        return $message
+    }
+}
 ```
 
-更多：
+> `toJpush` 方法需要返回一个 `Surpaimb\JPush\Message` 对象实例！
+
+完成上面的配置后，就可以推送了，记得在 `via` 方法中返回 `jpush` 这个值哈，例如：
+
+```php
+public function via()
+{
+    return ['database', 'jpush'];
+}
 ```
-如果上面两种方式不能满足使用
-尝试查看 `surpaimb\JPush\JPushService` 里面的方法可以组合链式调用
-```
 
-## Tips
-```
-在极光后台查看推送历史的时候, 有个选择框, Web/Api，
-通过包推送的是 `Api` 这种方式，但是默认值是 `Web`，查看的时候要切换一下
-```
+## 使用案例
 
-## Links
-[http://docs.jiguang.cn/jpush/guideline/intro/](http://docs.jiguang.cn/jpush/guideline/intro/)
+- ThinkSNS - *：ThinkSNS Plus 系列产品都使用了本驱动为 Laravel 应用推送用户通知
+    - 项目主页：[slimkit/plus](https://github.com/slimkit/plus)
+    - 代码示例：[Comment.php](https://github.com/slimkit/plus/blob/master/app/Notifications/Comment.php#L68) 💡: 在 `app/Notifications` 下有大多数示例。
 
-[http://docs.jiguang.cn/jpush/server/push/rest_api_v3_push/](http://docs.jiguang.cn/jpush/server/push/rest_api_v3_push/)
+## License
 
-## 
-极光文档我觉得是推送服务商里写的最好的文档
-
-
+这个包采用 MIT License 开源。
 
